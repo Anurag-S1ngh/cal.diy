@@ -36,4 +36,19 @@ describe("parseHostnameList", () => {
   it("should drop empty entries", () => {
     expect(parseHostnameList("subdomain.domain.com,")).toEqual(["subdomain.domain.com"]);
   });
+
+  it("should strip an outer bracket wrapper when the value is not valid JSON", () => {
+    // Trailing commas make JSON.parse fail; the entries must not keep the brackets.
+    expect(parseHostnameList('["auth",]')).toEqual(["auth"]);
+    expect(parseHostnameList('["auth", "docs",]')).toEqual(["auth", "docs"]);
+    expect(parseHostnameList("[auth,docs]")).toEqual(["auth", "docs"]);
+  });
+
+  it("should trim whitespace that was inside the quotes", () => {
+    expect(parseHostnameList('" auth ",docs')).toEqual(["auth", "docs"]);
+  });
+
+  it("should keep the brackets of a bare IPv6 literal", () => {
+    expect(parseHostnameList("[::1]:3000")).toEqual(["[::1]:3000"]);
+  });
 });

@@ -141,10 +141,15 @@ export const ENABLE_PROFILE_SWITCHER = process.env.NEXT_PUBLIC_ENABLE_PROFILE_SW
 // while .env.example documents the JSON-fragment form ("a","b"). Accept both so a
 // formatting mismatch degrades to a clear empty list instead of crashing module load.
 export function parseHostnameList(rawValue: string | undefined): string[] {
-  if (!rawValue) return [];
-  const bracketed = rawValue.trim().startsWith("[") ? rawValue.trim() : `[${rawValue}]`;
+  const trimmed = rawValue?.trim();
+  if (!trimmed) return [];
+
+  // Only treat the value as already-bracketed when it is fully wrapped, so that a
+  // bare IPv6 literal like [::1]:3000 keeps its brackets.
+  const isWrapped = trimmed.startsWith("[") && trimmed.endsWith("]");
+
   try {
-    const parsed: unknown = JSON.parse(bracketed);
+    const parsed: unknown = JSON.parse(isWrapped ? trimmed : `[${trimmed}]`);
     if (Array.isArray(parsed)) {
       return parsed
         .filter((hostname): hostname is string => typeof hostname === "string")
@@ -154,10 +159,22 @@ export function parseHostnameList(rawValue: string | undefined): string[] {
   } catch {
     // Fall through to bare comma-separated parsing below.
   }
-  return rawValue
-    .split(",")
-    .map((hostname) => hostname.trim().replace(/^["']|["']$/g, ""))
-    .filter(Boolean);
+  // Strip an outer [...] wrapper first: ["auth",] is not valid JSON, and splitting it
+  // as-is would leave the leading [ and trailing ] attached to the entries.
+  const unwrapped = isWrapped ? trimmed.slice(1, -1) : trimmed;
+  return (
+    unwrapped
+      .split(",")
+      // Trim again after removing quotes, since `" auth "` is only known to be padded
+      // once the quotes are gone.
+      .map((hostname) =>
+        hostname
+          .trim()
+          .replace(/^["']|["']$/g, "")
+          .trim()
+      )
+      .filter(Boolean)
+  );
 }
 export const ALLOWED_HOSTNAMES = parseHostnameList(process.env.ALLOWED_HOSTNAMES);
 export const RESERVED_SUBDOMAINS = parseHostnameList(process.env.RESERVED_SUBDOMAINS);
