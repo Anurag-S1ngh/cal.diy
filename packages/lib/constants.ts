@@ -136,6 +136,16 @@ export const FULL_NAME_LENGTH_MAX_LIMIT = 50;
 export const API_NAME_LENGTH_MAX_LIMIT = 80;
 export const MINUTES_TO_BOOK = process.env.NEXT_PUBLIC_MINUTES_TO_BOOK || "5";
 export const ENABLE_PROFILE_SWITCHER = process.env.NEXT_PUBLIC_ENABLE_PROFILE_SWITCHER === "1";
+// Brackets normally wrap a JSON-style list, but they are also how an IPv6 host is
+// written ([::1]), so ask the URL parser before treating them as a wrapper.
+function isBracketedHost(value: string): boolean {
+  try {
+    return new URL(`http://${value}`).hostname.startsWith("[");
+  } catch {
+    return false;
+  }
+}
+
 // Needed for orgs
 // Self-hosters commonly write bare hostnames (app.example.com,other.example.com)
 // while .env.example documents the JSON-fragment form ("a","b"). Accept both so a
@@ -144,9 +154,7 @@ export function parseHostnameList(rawValue: string | undefined): string[] {
   const trimmed = rawValue?.trim();
   if (!trimmed) return [];
 
-  // Only treat the value as already-bracketed when it is fully wrapped, so that a
-  // bare IPv6 literal like [::1]:3000 keeps its brackets.
-  const isWrapped = trimmed.startsWith("[") && trimmed.endsWith("]");
+  const isWrapped = trimmed.startsWith("[") && trimmed.endsWith("]") && !isBracketedHost(trimmed);
 
   try {
     const parsed: unknown = JSON.parse(isWrapped ? trimmed : `[${trimmed}]`);

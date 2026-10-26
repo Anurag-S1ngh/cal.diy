@@ -49,6 +49,8 @@ describe("parseHostnameList", () => {
   });
 
   it("should keep the brackets of a bare IPv6 literal", () => {
+    expect(parseHostnameList("[::1]")).toEqual(["[::1]"]);
+    expect(parseHostnameList("[2001:db8::1]")).toEqual(["[2001:db8::1]"]);
     expect(parseHostnameList("[::1]:3000")).toEqual(["[::1]:3000"]);
   });
 });
