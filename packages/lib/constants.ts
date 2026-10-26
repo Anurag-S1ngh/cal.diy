@@ -146,6 +146,23 @@ function isBracketedHost(value: string): boolean {
   }
 }
 
+function stripQuotes(value: string): string {
+  return value
+    .trim()
+    .replace(/^["']|["']$/g, "")
+    .trim();
+}
+
+// A single JSON-style wrapper leaves one stray [ on the first entry and one ] on the
+// last, but an IPv6 entry owns its brackets, so only strip brackets that aren't a host.
+function normalizeEntry(rawEntry: string): string {
+  let entry = rawEntry.trim();
+  if (entry.startsWith("[") && !isBracketedHost(entry)) entry = entry.slice(1);
+  entry = stripQuotes(entry);
+  if (entry.endsWith("]") && !isBracketedHost(entry)) entry = entry.slice(0, -1);
+  return stripQuotes(entry);
+}
+
 // Needed for orgs
 // Self-hosters commonly write bare hostnames (app.example.com,other.example.com)
 // while .env.example documents the JSON-fragment form ("a","b"). Accept both so a
@@ -154,8 +171,8 @@ export function parseHostnameList(rawValue: string | undefined): string[] {
   const trimmed = rawValue?.trim();
   if (!trimmed) return [];
 
+  // Only used to decide whether to parse the value as JSON or re-wrap it as an array.
   const isWrapped = trimmed.startsWith("[") && trimmed.endsWith("]") && !isBracketedHost(trimmed);
-
   try {
     const parsed: unknown = JSON.parse(isWrapped ? trimmed : `[${trimmed}]`);
     if (Array.isArray(parsed)) {
@@ -165,24 +182,9 @@ export function parseHostnameList(rawValue: string | undefined): string[] {
         .filter(Boolean);
     }
   } catch {
-    // Fall through to bare comma-separated parsing below.
+    // Fall through to comma-separated parsing below.
   }
-  // Strip an outer [...] wrapper first: ["auth",] is not valid JSON, and splitting it
-  // as-is would leave the leading [ and trailing ] attached to the entries.
-  const unwrapped = isWrapped ? trimmed.slice(1, -1) : trimmed;
-  return (
-    unwrapped
-      .split(",")
-      // Trim again after removing quotes, since `" auth "` is only known to be padded
-      // once the quotes are gone.
-      .map((hostname) =>
-        hostname
-          .trim()
-          .replace(/^["']|["']$/g, "")
-          .trim()
-      )
-      .filter(Boolean)
-  );
+  return trimmed.split(",").map(normalizeEntry).filter(Boolean);
 }
 export const ALLOWED_HOSTNAMES = parseHostnameList(process.env.ALLOWED_HOSTNAMES);
 export const RESERVED_SUBDOMAINS = parseHostnameList(process.env.RESERVED_SUBDOMAINS);

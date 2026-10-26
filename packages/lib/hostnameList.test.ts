@@ -53,4 +53,13 @@ describe("parseHostnameList", () => {
     expect(parseHostnameList("[2001:db8::1]")).toEqual(["[2001:db8::1]"]);
     expect(parseHostnameList("[::1]:3000")).toEqual(["[::1]:3000"]);
   });
+
+  it("should parse comma-separated bracketed IPv6 hosts as separate entries", () => {
+    expect(parseHostnameList("[::1],[::2]")).toEqual(["[::1]", "[::2]"]);
+    expect(parseHostnameList("[::1],[::2]:3000,localhost:3000")).toEqual([
+      "[::1]",
+      "[::2]:3000",
+      "localhost:3000",
+    ]);
+  });
 });
